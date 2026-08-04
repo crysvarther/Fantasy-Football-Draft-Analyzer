@@ -182,6 +182,7 @@ function renderBoard() {
       if (pk) {
         const p = PLAYERS[pk.playerId];
         cell.classList.add('filled', 'pos-' + p.pos);
+        if (overall === state.picks.length) cell.classList.add('latest'); // freshest pick gets the flash
         cell.innerHTML =
           `<div class="c-pos" style="background:${POS_COLORS[p.pos]}">${p.pos}</div>
            <div class="c-name">${shortName(p.name)}</div>
@@ -222,14 +223,23 @@ function shortName(n) {
 
 function renderClock() {
   const cur = currentOverall();
+  const el = $('#clock-team');
+  let nextName, nextPick;
   if (cur > totalPicks()) {
-    $('#clock-team').textContent = 'DRAFT COMPLETE';
-    $('#clock-pick').textContent = '🏆';
-    return;
+    nextName = 'DRAFT COMPLETE'; nextPick = '🏆';
+  } else {
+    const { team } = slotForOverall(cur);
+    nextName = teamName(team);
+    nextPick = `PICK ${pickLabel(cur)} · OVERALL #${cur}`;
   }
-  const { round, team } = slotForOverall(cur);
-  $('#clock-team').textContent = teamName(team);
-  $('#clock-pick').textContent = `PICK ${pickLabel(cur)} · OVERALL #${cur}`;
+  // broadcast swap animation when the name on the clock changes
+  if (el.textContent !== nextName) {
+    el.classList.remove('swap');
+    void el.offsetWidth;               // restart the animation
+    el.classList.add('swap');
+  }
+  el.textContent = nextName;
+  $('#clock-pick').textContent = nextPick;
 }
 
 function availablePlayers() {
