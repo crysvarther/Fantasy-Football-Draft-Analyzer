@@ -1,0 +1,26 @@
+# Claude Code local settings (machine-specific permission allowlist)
+.claude/settings.local.json
+
+# Dependencies (in case a build step is added later)
+node_modules/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*~
+*.swp
+
+# Logs & temp
+*.log
+tmp/
+temp/
+
+# ── Selling / deployment secrets ─────────────────────────────
+# js/config.js currently holds only PLACEHOLDERS and is committed on purpose.
+# Once you paste in real Lemon Squeezy store/product IDs or a private proxy URL,
+# either keep them out of the public repo or move them to a separate ignored
+# file. Uncomment the next line if config.js starts holding real values:
+# js/config.js

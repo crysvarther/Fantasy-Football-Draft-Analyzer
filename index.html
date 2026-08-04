@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRIDIRON COMMAND — Draft Analyzer</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<canvas id="fx-canvas"></canvas>
+<div class="stadium-glow"></div>
+
+<!-- ============ LICENSE SCREEN ============ -->
+<section id="license-screen" class="screen">
+  <div class="setup-panel license-panel">
+    <div class="logo-block">
+      <div class="logo-shield">🏈</div>
+      <h1 class="logo-title">GRIDIRON <span>COMMAND</span></h1>
+      <div class="logo-sub">ACTIVATE YOUR SEASON PASS</div>
+    </div>
+    <p class="lic-intro">Enter the license key from your purchase email to unlock the draft war room on this device.</p>
+    <input type="text" id="lic-key" placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" autocomplete="off" spellcheck="false">
+    <div id="lic-msg" class="lic-msg"></div>
+    <button id="btn-activate" class="btn-kickoff">🔓 &nbsp;ACTIVATE</button>
+    <a id="lic-buy" href="#" target="_blank" rel="noopener" class="btn-resume">Don't have a key? Get your season pass →</a>
+  </div>
+</section>
+
+<!-- ============ SETUP SCREEN ============ -->
+<section id="setup-screen" class="screen active">
+  <div class="setup-panel">
+    <div class="logo-block">
+      <div class="logo-shield">🏈</div>
+      <h1 class="logo-title">GRIDIRON <span>COMMAND</span></h1>
+      <div class="logo-sub">FANTASY DRAFT WAR ROOM</div>
+    </div>
+
+    <div class="setup-grid">
+      <div class="setup-card">
+        <h3>⚙ LEAGUE SIZE</h3>
+        <div class="opt-row" id="opt-teams">
+          <button data-val="8">8</button>
+          <button data-val="10">10</button>
+          <button data-val="12" class="sel">12</button>
+          <button data-val="14">14</button>
+          <button data-val="16">16</button>
+        </div>
+        <h3>ROUNDS</h3>
+        <div class="opt-row" id="opt-rounds">
+          <button data-val="10">10</button>
+          <button data-val="12">12</button>
+          <button data-val="15" class="sel">15</button>
+          <button data-val="16">16</button>
+        </div>
+      </div>
+
+      <div class="setup-card">
+        <h3>🏆 SCORING</h3>
+        <div class="opt-col" id="opt-scoring">
+          <button data-val="0">STANDARD <small>no points per reception</small></button>
+          <button data-val="0.5" class="sel">HALF PPR <small>0.5 pts per reception</small></button>
+          <button data-val="1">FULL PPR <small>1 pt per reception</small></button>
+        </div>
+        <h3>QB FORMAT</h3>
+        <div class="opt-row" id="opt-qb">
+          <button data-val="1" class="sel">1 QB</button>
+          <button data-val="2">SUPERFLEX</button>
+        </div>
+      </div>
+
+      <div class="setup-card">
+        <h3>🎙 AI ANNOUNCER</h3>
+        <div class="opt-row" id="opt-announcer">
+          <button data-val="on" class="sel">MIC ON</button>
+          <button data-val="off">MUTED</button>
+        </div>
+        <h3>TEAM NAMES <small class="hint">(optional — edit any)</small></h3>
+        <div id="team-name-inputs" class="team-names"></div>
+      </div>
+
+      <div class="setup-card setup-card-wide">
+        <h3>📊 PLAYER DATA</h3>
+        <div class="opt-col" id="opt-data">
+          <button data-src="builtin" class="sel">BUILT-IN BOARD <small>curated 2026 rankings, works offline</small></button>
+          <button data-src="live" id="data-live-btn">SYNC LIVE ADP <small>pull current average draft position</small></button>
+          <button data-src="csv">IMPORT CSV <small>your own cheat sheet / rankings export</small></button>
+        </div>
+        <input type="file" id="csv-file" accept=".csv,text/csv" class="hidden">
+        <div id="data-status" class="data-status">Using built-in 2026 board.</div>
+      </div>
+    </div>
+
+    <button id="btn-start" class="btn-kickoff">▶ &nbsp;KICKOFF THE DRAFT</button>
+    <button id="btn-resume" class="btn-resume hidden">RESUME SAVED DRAFT</button>
+  </div>
+</section>
+
+<!-- ============ DRAFT SCREEN ============ -->
+<section id="draft-screen" class="screen">
+
+  <header id="topbar">
+    <div class="topbar-logo">🏈 <b>GRIDIRON</b> COMMAND</div>
+    <div id="clock-block">
+      <div class="clock-label">ON THE CLOCK</div>
+      <div id="clock-team">—</div>
+      <div id="clock-pick">—</div>
+    </div>
+    <div class="topbar-right">
+      <div id="league-badge">12 TEAM · HALF PPR</div>
+      <button id="btn-undo" class="tb-btn" title="Undo last pick">↩ UNDO</button>
+      <button id="btn-recap" class="tb-btn hidden" title="Draft recap">🏆 RECAP</button>
+      <button id="btn-restart" class="tb-btn" title="Back to setup">⚙ SETUP</button>
+    </div>
+  </header>
+
+  <div id="main-layout">
+
+    <!-- Draft board -->
+    <div id="board-wrap">
+      <div id="board-tilt">
+        <div id="board"></div>
+      </div>
+    </div>
+
+    <!-- Sidebar: pick entry + best available -->
+    <aside id="sidebar">
+      <div class="side-card" id="pick-card">
+        <h3>MAKE THE PICK</h3>
+        <input type="text" id="player-search" placeholder="Search player…" autocomplete="off">
+        <div class="pos-filters" id="pos-filters">
+          <button data-pos="ALL" class="sel">ALL</button>
+          <button data-pos="QB">QB</button>
+          <button data-pos="RB">RB</button>
+          <button data-pos="WR">WR</button>
+          <button data-pos="TE">TE</button>
+          <button data-pos="K">K</button>
+          <button data-pos="DST">DST</button>
+        </div>
+        <div id="player-list"></div>
+      </div>
+
+      <div class="side-card" id="best-card">
+        <h3>⭐ BEST AVAILABLE</h3>
+        <div id="best-list"></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Grade reveal overlay -->
+  <div id="grade-overlay" class="hidden">
+    <div id="grade-card">
+      <div class="gc-face gc-front">
+        <div class="gc-helmet">🏈</div>
+        <div class="gc-front-txt">PICK IS IN…</div>
+      </div>
+      <div class="gc-face gc-back">
+        <div id="gc-grade">A</div>
+        <div id="gc-player">Player Name</div>
+        <div id="gc-meta">RB · DAL · Pick 1.01</div>
+        <div id="gc-verdict">STEAL OF THE DRAFT</div>
+        <div id="gc-detail">ADP 12 · taken at 24 (+12 value)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Post-draft recap -->
+  <div id="recap-overlay" class="hidden">
+    <div id="recap-card">
+      <div id="recap-body"></div>
+    </div>
+  </div>
+
+  <!-- Announcer lower-third -->
+  <div id="announcer" class="hidden">
+    <div id="ann-avatar">
+      <div class="ann-head">🎙</div>
+      <div class="ann-wave"><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+    <div id="ann-body">
+      <div class="ann-name">BUCK "THE CANNON" CALLAHAN <span class="ann-live">● LIVE</span></div>
+      <div id="ann-text"></div>
+    </div>
+  </div>
+
+</section>
+
+<script src="js/config.js"></script>
+<script src="js/players.js"></script>
+<script src="js/data.js"></script>
+<script src="js/license.js"></script>
+<script src="js/parallax.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/announcer.js"></script>
+<script src="js/recap.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
