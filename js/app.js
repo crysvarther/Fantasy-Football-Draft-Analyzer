@@ -7,7 +7,7 @@ const $$ = s => [...document.querySelectorAll(s)];
 
 // ---------- State ----------
 const state = {
-  settings: { teams: 12, rounds: 15, ppr: 0.5, qb: 1, announcer: true, names: [] },
+  settings: { teams: 12, rounds: 15, ppr: 0.5, qb: 1, announcer: true, cheer: true, names: [] },
   picks: [],          // [{playerId, overall, team, round, slot, grade, score, delta}]
   started: false,
   posFilter: 'ALL'
@@ -333,6 +333,7 @@ function finishDraft() {
   setTimeout(() => {
     $('#grade-overlay').classList.add('hidden');
     Announcer.wrap();
+    Cheer.show('var(--gold)', 6500);   // full-length routine for the finale
     setTimeout(() => Recap.show(), 2600);
   }, 3400);
 }
@@ -359,6 +360,7 @@ function showGradeReveal(p, overall, team, round, g) {
   setTimeout(() => {
     card.classList.add('flipped');
     if (g.score >= 80) FX.celebrate(POS_COLORS[p.pos]);
+    if (g.score >= 88) Cheer.show(POS_COLORS[p.pos]);   // squad runs out for true steals
     if (g.score < 28) FX.boo();
     Announcer.call({
       player: p.name, team: teamName(team), pickLabel: pickLabel(overall),
@@ -376,6 +378,7 @@ function undoPick() {
   if (!pk) return;
   PLAYERS[pk.playerId].drafted = false;
   Announcer.stop();
+  Cheer.hide();
   $('#grade-overlay').classList.add('hidden');
   $('#announcer').classList.add('hidden');
   save();
@@ -493,6 +496,7 @@ function init() {
   wireOptionGroup('opt-scoring', v => state.settings.ppr = +v);
   wireOptionGroup('opt-qb', v => state.settings.qb = +v);
   wireOptionGroup('opt-announcer', v => state.settings.announcer = v === 'on');
+  wireOptionGroup('opt-cheer', v => state.settings.cheer = v === 'on');
   renderTeamNameInputs();
 
   $('#btn-start').addEventListener('click', () => {

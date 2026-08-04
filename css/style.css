@@ -885,6 +885,55 @@ body::after {
 }
 #grade-card.flipped #gc-verdict { animation: riseIn .4s .5s cubic-bezier(.2,1.4,.4,1) backwards; }
 
+/* ============ CHEER SQUAD (celebration line) ============ */
+#cheer-squad {
+  position: fixed;
+  left: 0; right: 0; bottom: 2px;
+  z-index: 58;                       /* above grade overlay, below announcer */
+  display: flex;
+  justify-content: center;
+  gap: clamp(6px, 2vw, 30px);
+  pointer-events: none;
+  filter: drop-shadow(0 8px 18px rgba(0,0,0,0.6));
+}
+.cheer-fig {
+  width: clamp(54px, 6vw, 92px);
+  height: auto;
+  opacity: 0;
+  transform: translateY(120px);
+}
+/* silhouette styling: solid gold figures (reads on the dark field),
+   glowing pom-poms in the accent color */
+.cheer-fig .sil { stroke: var(--gold); }
+.cheer-fig .sil-fill { fill: var(--gold); stroke: #0a1220; stroke-width: 1.5; }
+.cheer-fig .fig-body { filter: drop-shadow(0 0 10px rgba(245,196,81,0.45)); }
+.cheer-fig .pom circle { fill: var(--pom-c, var(--gold-bright)); opacity: 0.95; }
+.cheer-fig .pom { filter: drop-shadow(0 0 7px var(--pom-c, var(--gold-bright))); }
+
+/* routine: staggered entrance -> bounce -> kick line -> exit (via JS hide) */
+#cheer-squad.run .cheer-fig {
+  animation:
+    cheerIn .5s calc(var(--i) * 0.07s) cubic-bezier(.2,1.5,.4,1) forwards,
+    cheerBounce 1s calc(.6s + var(--i) * 0.07s) ease-in-out 3;
+}
+@keyframes cheerIn { to { opacity: 1; transform: translateY(0); } }
+@keyframes cheerBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-16px); }
+}
+/* alternating kick line */
+#cheer-squad.run .cheer-fig .kick-leg {
+  transform-origin: 46px 75px;
+  animation: kick .5s calc(.7s + var(--i) * 0.07s) ease-in-out 6 alternate;
+}
+@keyframes kick { from { transform: rotate(0deg); } to { transform: rotate(-70deg); } }
+/* pom shake, slightly out of phase per figure */
+#cheer-squad.run .pom {
+  transform-origin: center;
+  animation: pomShake .3s calc(var(--i) * 0.05s) ease-in-out infinite alternate;
+}
+@keyframes pomShake { from { transform: rotate(-8deg) translateY(0); } to { transform: rotate(8deg) translateY(-3px); } }
+
 /* honor reduced-motion: kill parallax transitions & ALL motion-package animations */
 @media (prefers-reduced-motion: reduce) {
   .stadium-glow, body::after, #board-tilt, .setup-panel { transition: none; }
@@ -899,6 +948,8 @@ body::after {
   #clock-team.swap, .cell.latest::after, .gc-ring,
   #grade-card.flipped #gc-grade, #grade-card.flipped #gc-verdict,
   .btn-kickoff::after { animation: none !important; }
+  #cheer-squad.run .cheer-fig { animation: cheerIn .01s forwards !important; }
+  #cheer-squad.run .kick-leg, #cheer-squad.run .pom { animation: none !important; }
 }
 
 /* ============ TV / widescreen tuning ============ */
