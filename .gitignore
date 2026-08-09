@@ -19,6 +19,10 @@ tmp/
 temp/
 
 # ── Selling / deployment secrets ─────────────────────────────
+# FantasyPros API key note (keep out of the repo!)
+fantasy pros api.txt
+js/config.local.js
+
 # js/config.js currently holds only PLACEHOLDERS and is committed on purpose.
 # Once you paste in real Lemon Squeezy store/product IDs or a private proxy URL,
 # either keep them out of the public repo or move them to a separate ignored

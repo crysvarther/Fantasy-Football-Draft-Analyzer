@@ -79,6 +79,29 @@ the "Sync Live ADP" button just shows a hint.
 The worker caches responses at Cloudflare's edge for an hour, so you won't hammer
 the upstream even with many users.
 
+### FantasyPros expert-consensus rankings (recommended data source)
+
+The app can also pull ~100-expert consensus rankings (ECR) from the FantasyPros
+API — better signal than raw mock-draft ADP. Note (verified): the FP API
+**rejects browser CORS preflights** (403 on OPTIONS), so the browser can never
+call it directly — every setup routes through a proxy:
+
+- **Your own machine:** run the local dev server (it proxies `/fp` using your
+  key file, which is gitignored) and click **FANTASYPROS ECR** in setup.
+- **For buyers:** never ship your key in client code (anyone can read it). Add
+  it to the same Cloudflare Worker instead: `wrangler secret put FP_API_KEY`
+  (or dashboard → Settings → Variables), then set
+  `CONFIG.fantasyPros.proxyUrl = "https://your-worker.workers.dev/fp"` in
+  `js/config.js`. The worker holds the key server-side and edge-caches
+  responses for an hour, so even a burst of draft-night users results in a
+  handful of upstream calls. (The worker also accepts a user-pasted key
+  forwarded as an `x-api-key` header, for a bring-your-own-key model.)
+
+Licensing note: using a FantasyPros key inside a product you *sell* is a
+commercial use of their data — check your API plan's terms (or ask them for a
+partner/commercial tier) before launch. Also keep `fantasy pros api.txt` (and
+any file containing a real key) out of the repo — it's already in .gitignore.
+
 ---
 
 ## 4. Host the app

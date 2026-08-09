@@ -25,6 +25,18 @@ const CONFIG = {
     devUnlockCode: "GRIDIRON-DEV"
   },
 
+  // ---- FantasyPros -------------------------------------------------------
+  // Expert-consensus rankings (ECR) from api.fantasypros.com. The FP API
+  // rejects browser CORS preflights, so all requests go through a proxy.
+  // NEVER put a real key in this committed file.
+  //   1. Local dev: leave proxyUrl "" — the app falls back to same-origin
+  //      /fp (the dev server proxies it using your gitignored key file).
+  //   2. Selling: deploy the Cloudflare Worker with FP_API_KEY set as a
+  //      secret and put the worker /fp URL here — buyers never see a key.
+  fantasyPros: {
+    proxyUrl: ""              // e.g. "https://gridiron-adp.YOURNAME.workers.dev/fp"
+  },
+
   // ---- Live ADP proxy ----------------------------------------------------
   // FantasyFootballCalculator's ADP API has current data but no CORS header,
   // so browsers can't call it directly. Deploy the tiny Cloudflare Worker in

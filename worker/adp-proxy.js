@@ -22,18 +22,50 @@ function cors(extra = {}) {
   return {
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
     "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Accept, Content-Type",
+    "Access-Control-Allow-Headers": "Accept, Content-Type, x-api-key",
     ...extra
   };
 }
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: cors() });
     }
 
     const url = new URL(request.url);
+
+    // ---- FantasyPros ECR proxy (keeps your FP_API_KEY server-side) ----
+    // Deploy note: set the secret with `wrangler secret put FP_API_KEY`
+    // (or Workers dashboard -> Settings -> Variables -> add FP_API_KEY).
+    if (url.pathname === "/fp") {
+      // a key pasted in the app is forwarded as x-api-key; else the
+      // worker's own FP_API_KEY secret is used
+      const fpApiKey = request.headers.get("x-api-key") || (env && env.FP_API_KEY);
+      if (!fpApiKey) {
+        return json({ error: "FP_API_KEY not configured on the worker" }, 501);
+      }
+      const scoring = (url.searchParams.get("scoring") || "HALF").toUpperCase();
+      const fpYear = Math.min(2100, Math.max(2000, parseInt(url.searchParams.get("year") || "2026", 10)));
+      if (!["STD", "HALF", "PPR"].includes(scoring)) {
+        return json({ error: "scoring must be STD | HALF | PPR" }, 400);
+      }
+      try {
+        const upstream = await fetch(
+          `https://api.fantasypros.com/public/v2/json/nfl/${fpYear}/consensus-rankings?type=draft&scoring=${scoring}&position=ALL&week=0`,
+          { headers: { "x-api-key": fpApiKey, "Accept": "application/json" },
+            cf: { cacheTtl: 3600, cacheEverything: true } }
+        );
+        if (!upstream.ok) return json({ error: `upstream ${upstream.status}` }, 502);
+        const body = await upstream.text();
+        return new Response(body, {
+          status: 200,
+          headers: cors({ "Content-Type": "application/json", "Cache-Control": "public, max-age=3600" })
+        });
+      } catch (e) {
+        return json({ error: "fetch failed", detail: String(e) }, 502);
+      }
+    }
     const format = (url.searchParams.get("format") || "ppr").toLowerCase();
     const teams = Math.min(20, Math.max(4, parseInt(url.searchParams.get("teams") || "12", 10)));
     const year = Math.min(2100, Math.max(2000, parseInt(url.searchParams.get("year") || "2026", 10)));

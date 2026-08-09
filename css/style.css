@@ -252,6 +252,27 @@ html, body {
 
 /* wide data-source card spans setup grid */
 .setup-card-wide { grid-column: 1 / -1; }
+.fp-key-row { display: flex; gap: 8px; margin-top: 10px; }
+.fp-key-row input {
+  flex: 1;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--txt);
+  font-size: 13px;
+  font-family: "Consolas", monospace;
+}
+.fp-key-row input:focus { outline: none; border-color: var(--gold); }
+.fp-key-row button {
+  background: linear-gradient(180deg, var(--gold), #c99a2e);
+  border: none; border-radius: 8px;
+  color: #1a1200; font-weight: 900; font-size: 11px;
+  padding: 9px 14px; letter-spacing: 1px; cursor: pointer;
+  white-space: nowrap;
+}
+.fp-key-row button:hover { filter: brightness(1.12); }
+
 .data-status {
   margin-top: 12px; font-size: 13px; font-weight: 600;
   color: var(--txt-dim); letter-spacing: 0.5px;

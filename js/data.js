@@ -103,6 +103,50 @@ const DataLayer = (function () {
     return rebuildPool(rows, `Live ADP · ${fmtLabel} · ${teams}-team`);
   }
 
+  // ---- FantasyPros expert-consensus rankings ----------------------------
+  // Board value = rank_ave (average rank across ~100 experts).
+  // IMPORTANT (verified): the FP API returns 403 on CORS preflight, so a
+  // browser can never call it directly with the x-api-key header. All
+  // requests go through a proxy: CONFIG.fantasyPros.proxyUrl (Cloudflare
+  // Worker /fp with FP_API_KEY secret), or same-origin /fp (local dev
+  // server). A pasted key (localStorage) is forwarded for proxies that
+  // don't hold their own key.
+  const FP_SCORING = { 1: 'PPR', 0.5: 'HALF', 0: 'STD' };
+  function fpKey() { return localStorage.getItem('gridiron-fp-key') || ''; }
+  function setFpKey(k) { localStorage.setItem('gridiron-fp-key', (k || '').trim()); }
+
+  async function syncFantasyPros(pprSetting, year) {
+    const scoring = FP_SCORING[pprSetting] || 'HALF';
+    const proxy = (CONFIG.fantasyPros && CONFIG.fantasyPros.proxyUrl) ||
+      (location.protocol.startsWith('http') ? '/fp' : '');
+    if (!proxy) {
+      throw new Error('FantasyPros blocks direct browser requests — serve the app over http with the /fp proxy, or configure the worker (SELLING.md).');
+    }
+    const key = fpKey();
+    const resp = await fetch(`${proxy.replace(/\/$/, '')}?scoring=${scoring}&year=${year}`,
+      { headers: key ? { 'x-api-key': key } : {} });
+    if (resp.status === 401 || resp.status === 403) {
+      const err = new Error('FantasyPros rejected the API key. Double-check it and paste it again.');
+      err.needsKey = true;
+      throw err;
+    }
+    if (resp.status === 404 || resp.status === 501) {
+      throw new Error('No FantasyPros proxy is set up on this deployment — see SELLING.md (worker /fp + FP_API_KEY).');
+    }
+    if (!resp.ok) throw new Error(`FantasyPros returned ${resp.status}. Try again or use CSV import.`);
+    const data = await resp.json();
+    if (!Array.isArray(data.players) || !data.players.length) throw new Error('FantasyPros feed was empty.');
+    const rows = data.players.map(p => ({
+      name: p.player_name,
+      team: p.player_team_id,
+      pos: p.player_position_id,
+      adp: parseFloat(p.rank_ave) || p.rank_ecr,
+      bye: parseInt(p.player_bye_week, 10)
+    }));
+    const experts = data.total_experts ? ` · ${data.total_experts} experts` : '';
+    return rebuildPool(rows, `FantasyPros ECR · ${scoring}${experts}`);
+  }
+
   // ---- CSV import --------------------------------------------------------
   function parseCSV(text) {
     const rows = [];
@@ -172,5 +216,5 @@ const DataLayer = (function () {
   function saveMeta() { try { localStorage.setItem('gridiron-pool-meta', JSON.stringify(poolMeta)); } catch {} }
   function loadMeta() { try { return JSON.parse(localStorage.getItem('gridiron-pool-meta')); } catch { return null; } }
 
-  return { rebuildPool, useBuiltIn, syncADP, importCSV, parseCSV, importFromGrid: null, getMeta: () => poolMeta, loadMeta };
+  return { rebuildPool, useBuiltIn, syncADP, syncFantasyPros, fpKey, setFpKey, importCSV, parseCSV, getMeta: () => poolMeta, loadMeta };
 })();

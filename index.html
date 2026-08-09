@@ -89,8 +89,13 @@
         <h3>📊 PLAYER DATA</h3>
         <div class="opt-col" id="opt-data">
           <button data-src="builtin" class="sel">BUILT-IN BOARD <small>curated 2026 rankings, works offline</small></button>
+          <button data-src="fp">FANTASYPROS ECR <small>~100-expert consensus rankings</small></button>
           <button data-src="live" id="data-live-btn">SYNC LIVE ADP <small>pull current average draft position</small></button>
           <button data-src="csv">IMPORT CSV <small>your own cheat sheet / rankings export</small></button>
+        </div>
+        <div id="fp-key-row" class="fp-key-row hidden">
+          <input type="password" id="fp-key-input" placeholder="Paste your FantasyPros API key" autocomplete="off" spellcheck="false">
+          <button id="fp-key-save">SAVE & SYNC</button>
         </div>
         <input type="file" id="csv-file" accept=".csv,text/csv" class="hidden">
         <div id="data-status" class="data-status">Using built-in 2026 board.</div>

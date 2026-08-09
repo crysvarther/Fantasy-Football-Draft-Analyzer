@@ -568,6 +568,15 @@ function wireDataSource() {
     if (!btn) return;
     selectDataSource(btn.dataset.src, btn);
   });
+  $('#fp-key-save').addEventListener('click', () => {
+    const k = $('#fp-key-input').value.trim();
+    if (!k) { setDataStatus('⚠ Paste your FantasyPros API key first.', 'err'); return; }
+    DataLayer.setFpKey(k);
+    $('#fp-key-input').value = '';
+    syncFantasyProsFlow();
+  });
+  $('#fp-key-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('#fp-key-save').click(); });
+
   $('#csv-file').addEventListener('change', e => {
     const file = e.target.files[0];
     if (!file) return;
@@ -589,6 +598,10 @@ async function selectDataSource(src, btn) {
     DataLayer.useBuiltIn();
     markDataBtn(btn);
     setDataStatus('Using built-in 2026 board.');
+    $('#fp-key-row').classList.add('hidden');
+  } else if (src === 'fp') {
+    markDataBtn(btn);
+    await syncFantasyProsFlow();
   } else if (src === 'live') {
     markDataBtn(btn);
     setDataStatus('Syncing live ADP…', 'loading');
@@ -602,6 +615,26 @@ async function selectDataSource(src, btn) {
     }
   } else if (src === 'csv') {
     $('#csv-file').click();   // selection confirmed when a file loads
+  }
+}
+
+async function syncFantasyProsFlow() {
+  setDataStatus('Syncing FantasyPros consensus rankings…', 'loading');
+  try {
+    const meta = await DataLayer.syncFantasyPros(state.settings.ppr, CONFIG.dataYear);
+    $('#fp-key-row').classList.add('hidden');
+    setDataStatus(`✓ ${meta.label} · ${meta.count} players`, 'ok');
+  } catch (e) {
+    if (e.needsKey) {
+      // reveal the key input instead of failing
+      $('#fp-key-row').classList.remove('hidden');
+      $('#fp-key-input').focus();
+      setDataStatus('⚠ ' + e.message, 'err');
+    } else {
+      setDataStatus('⚠ ' + e.message, 'err');
+      DataLayer.useBuiltIn();
+      markDataBtn($('#opt-data [data-src="builtin"]'));
+    }
   }
 }
 
