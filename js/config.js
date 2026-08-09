@@ -40,6 +40,16 @@ const CONFIG = {
     proxyUrl: ""              // e.g. "https://gridiron-adp.YOURNAME.workers.dev/fp"
   },
 
+  // ---- AI announcer (Phase 2) --------------------------------------------
+  // When apiUrl (or the same-origin /announce fallback in local dev) is
+  // reachable, each pick gets a unique Claude-written call, spoken with a
+  // neural voice when /voice has a TTS key. When unreachable, the app falls
+  // back to the built-in template lines + browser TTS — the draft never
+  // stalls on the network.
+  announcer: {
+    apiUrl: ""                // e.g. "https://gridiron-adp.YOURNAME.workers.dev"
+  },
+
   // ---- Live ADP proxy ----------------------------------------------------
   // FantasyFootballCalculator's ADP API has current data but no CORS header,
   // so browsers can't call it directly. Deploy the tiny Cloudflare Worker in

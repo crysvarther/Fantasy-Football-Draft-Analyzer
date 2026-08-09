@@ -111,7 +111,8 @@ const License = (function () {
   }
 
   function customerName() { const l = load(); return l && l.customer; }
+  function getKey() { const l = load(); return (l && !l.devUnlock && l.key) || null; }
   function deactivateLocal() { clear(); }
 
-  return { isUnlocked, needsRevalidate, activate, revalidate, customerName, deactivateLocal, buyUrl: cfg.buyUrl };
+  return { isUnlocked, needsRevalidate, activate, revalidate, customerName, getKey, deactivateLocal, buyUrl: cfg.buyUrl };
 })();

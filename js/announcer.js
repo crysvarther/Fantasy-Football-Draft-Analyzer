@@ -106,6 +106,99 @@ const Announcer = (function () {
     return line;
   }
 
+  // ============================================================
+  // LLM MODE (Phase 2) — unique Claude-written calls via the backend
+  // worker, neural voice via /voice. Every step degrades gracefully:
+  // no backend -> template lines; no TTS key -> browser speech.
+  // ============================================================
+  let llmDown = false;     // backend absent/unconfigured — stop asking this session
+  let voiceDown = false;   // no TTS provider — use browser TTS this session
+
+  function apiBase() {
+    const cfg = (typeof CONFIG !== 'undefined' && CONFIG.announcer && CONFIG.announcer.apiUrl) || '';
+    if (cfg) return cfg.replace(/\/$/, '');
+    return location.protocol.startsWith('http') ? '' : null;   // same-origin dev fallback
+  }
+
+  function licenseHeaders() {
+    const h = { 'Content-Type': 'application/json' };
+    if (typeof License !== 'undefined' && License.getKey && License.getKey()) {
+      h['x-gridiron-license'] = License.getKey();
+    }
+    return h;
+  }
+
+  // Fire the request the moment the pick is made (the grade-card suspense
+  // hides the latency). Returns a promise resolving to a line or null.
+  function prefetch(ctx) {
+    const base = apiBase();
+    if (llmDown || base === null) return Promise.resolve(null);
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), 6000);
+    return fetch(`${base}/announce`, {
+      method: 'POST', headers: licenseHeaders(), body: JSON.stringify(ctx), signal: ac.signal
+    })
+      .then(r => {
+        if (r.status === 404 || r.status === 501) { llmDown = true; return null; }
+        if (!r.ok) return null;
+        return r.json().then(d => (d && d.line) ? String(d.line) : null);
+      })
+      .catch(() => { return null; })
+      .finally(() => clearTimeout(t));
+  }
+
+  // Wait for the prefetched line, but never hold the broadcast hostage.
+  function withTimeout(promise, ms) {
+    return Promise.race([promise, new Promise(res => setTimeout(() => res(null), ms))]);
+  }
+
+  // Neural voice with browser-TTS fallback
+  let audioEl = null;
+  async function voiceOrTts(text) {
+    if (!enabled) return;
+    const base = apiBase();
+    if (!voiceDown && base !== null) {
+      try {
+        const ac = new AbortController();
+        const t = setTimeout(() => ac.abort(), 8000);
+        const r = await fetch(`${base}/voice`, {
+          method: 'POST', headers: licenseHeaders(),
+          body: JSON.stringify({ text }), signal: ac.signal
+        });
+        clearTimeout(t);
+        if (r.status === 404 || r.status === 501) { voiceDown = true; }
+        else if (r.ok) {
+          const blob = await r.blob();
+          if (audioEl) { audioEl.pause(); URL.revokeObjectURL(audioEl.src); }
+          audioEl = new Audio(URL.createObjectURL(blob));
+          const ann = document.getElementById('announcer');
+          audioEl.onplay = () => ann.classList.add('talking');
+          audioEl.onended = audioEl.onerror = () => ann.classList.remove('talking');
+          await audioEl.play();
+          return;
+        }
+      } catch { /* fall through to browser TTS */ }
+    }
+    speak(text);
+  }
+
+  // The full smart path: LLM line if it arrives in time, template otherwise.
+  async function callSmart(ctx, prefetched) {
+    const llmLine = prefetched ? await withTimeout(prefetched, 3800) : null;
+    const line = llmLine || buildLine(ctx);
+    show(line);
+    voiceOrTts(line);
+    return line;
+  }
+
+  async function wrapSmart(ctx, prefetched) {
+    const llmLine = prefetched ? await withTimeout(prefetched, 3800) : null;
+    const line = llmLine || pick(LINES.wrap);
+    show(line);
+    voiceOrTts(line);
+    return line;
+  }
+
   function speak(text) {
     if (!enabled || !('speechSynthesis' in window)) return;
     speechSynthesis.cancel();
@@ -135,7 +228,11 @@ const Announcer = (function () {
   }
 
   return {
-    setEnabled(v) { enabled = v; if (!v) speechSynthesis.cancel(); },
+    setEnabled(v) {
+      enabled = v;
+      if (!v) { speechSynthesis.cancel(); if (audioEl) audioEl.pause(); }
+    },
+    prefetch, callSmart, wrapSmart,
     call(ctx) {
       const line = buildLine(ctx);
       show(line);
@@ -148,6 +245,9 @@ const Announcer = (function () {
       speak(line);
       return line;
     },
-    stop() { if ('speechSynthesis' in window) speechSynthesis.cancel(); }
+    stop() {
+      if ('speechSynthesis' in window) speechSynthesis.cancel();
+      if (audioEl) { audioEl.pause(); document.getElementById('announcer').classList.remove('talking'); }
+    }
   };
 })();

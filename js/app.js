@@ -320,25 +320,68 @@ function makePick(playerId) {
   state.picks.push({ playerId, overall, team, round, grade: g.grade, score: g.score, delta: g.delta });
   save();
 
+  // LLM announcer context — prefetch now so the line is ready by card-flip
+  const llmCtx = buildAnnounceContext(p, overall, team, round, g);
+  const prefetched = Announcer.prefetch(llmCtx);
+
   $('#player-search').value = '';
   renderAll();
-  showGradeReveal(p, overall, team, round, g);
+  showGradeReveal(p, overall, team, round, g, llmCtx, prefetched);
 
   if (currentOverall() > totalPicks()) finishDraft();
 }
 
 function finishDraft() {
   $('#btn-recap').classList.remove('hidden');
-  // let the final grade card breathe, then the wrap call, then the recap
+  // prefetch a personalized wrap-up while the final grade card breathes
+  const data = Recap.build();
+  const wrapCtx = {
+    mode: 'wrap',
+    winner: data.byGrade[0] && { team: data.byGrade[0].name, grade: data.byGrade[0].grade },
+    stealOfDraft: data.steal && data.steal.pk.delta > 2 ? {
+      player: PLAYERS[data.steal.pk.playerId].name, team: teamName(data.steal.pk.team),
+      pick: pickLabel(data.steal.pk.overall), value: Math.round(data.steal.pk.delta)
+    } : null,
+    biggestReach: data.reach && data.reach.pk.delta < -3 ? {
+      player: PLAYERS[data.reach.pk.playerId].name, team: teamName(data.reach.pk.team),
+      pick: pickLabel(data.reach.pk.overall), reach: Math.round(data.reach.pk.delta)
+    } : null,
+    league: `${state.settings.teams}-team, ${state.settings.rounds} rounds`
+  };
+  const prefetched = Announcer.prefetch(wrapCtx);
   setTimeout(() => {
     $('#grade-overlay').classList.add('hidden');
-    Announcer.wrap();
+    Announcer.wrapSmart(wrapCtx, prefetched);
     Cheer.show('var(--gold)', 6500);   // full-length routine for the finale
     setTimeout(() => Recap.show(), 2600);
   }, 3400);
 }
 
-function showGradeReveal(p, overall, team, round, g) {
+// Everything the LLM announcer might riff on, in one compact object
+function buildAnnounceContext(p, overall, team, round, g) {
+  const roster = rosterOf(team);
+  const counts = {};
+  roster.forEach(r => counts[r.pos] = (counts[r.pos] || 0) + 1);
+  const recent = state.picks.slice(-4, -1).map(pk => {
+    const rp = PLAYERS[pk.playerId];
+    return `${rp.name} (${rp.pos}) to ${teamName(pk.team)} at ${pickLabel(pk.overall)}, grade ${pk.grade}`;
+  });
+  return {
+    mode: 'pick',
+    player: p.name, pos: p.pos, nflTeam: p.team,
+    fantasyTeam: teamName(team),
+    pick: pickLabel(overall), overall, round,
+    grade: g.grade, score: g.score,
+    valueDelta: Math.round(g.delta),      // + = fell to them, - = reach
+    rosterAfterPick: counts,
+    qbCountAfterPick: g.qbCount,
+    filledPositionalNeed: g.filledNeed,
+    recentPicks: recent,
+    league: `${state.settings.teams}-team ${state.settings.ppr === 1 ? 'PPR' : state.settings.ppr === 0.5 ? 'half-PPR' : 'standard'}${state.settings.qb === 2 ? ' superflex' : ''}`
+  };
+}
+
+function showGradeReveal(p, overall, team, round, g, llmCtx, prefetched) {
   const ov = $('#grade-overlay');
   const card = $('#grade-card');
   clearTimeout(revealTimer);
@@ -362,11 +405,13 @@ function showGradeReveal(p, overall, team, round, g) {
     if (g.score >= 80) FX.celebrate(POS_COLORS[p.pos]);
     if (g.score >= 88) Cheer.show(POS_COLORS[p.pos]);   // squad runs out for true steals
     if (g.score < 28) FX.boo();
-    Announcer.call({
+    // template-context fields ride along for the fallback line builder
+    Announcer.callSmart({
+      ...llmCtx,
       player: p.name, team: teamName(team), pickLabel: pickLabel(overall),
       delta: g.delta, round, pos: p.pos, score: g.score,
       filledNeed: g.filledNeed, qbCount: g.qbCount
-    });
+    }, prefetched);
   }, 900);
 
   revealTimer = setTimeout(() => ov.classList.add('hidden'), 6500);

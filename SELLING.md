@@ -166,13 +166,44 @@ and what people will pay a premium for.
 
 ---
 
-## 7. What's deliberately NOT here (Phase 2+)
+## 7. Phase 2: the AI announcer backend (live)
 
-- **LLM + neural-voice announcer** — unique, unrepeatable commentary. Needs a
-  small backend (which also becomes an un-pirateable licensing anchor).
-- **Draft-platform sync** (Sleeper/ESPN/Yahoo) — picks flow onto the board
+The worker now carries two more routes: `/announce` (Claude writes a unique
+call for every pick) and `/voice` (neural TTS). The client degrades
+gracefully at every step — no backend → built-in template lines; no TTS key
+→ browser speech — so the draft never stalls on the network.
+
+**Setup (same worker as the data proxies):**
+
+1. In the Workers dashboard → Settings → Variables and Secrets, add
+   `ANTHROPIC_API_KEY` (get one at console.anthropic.com). This is the only
+   required secret.
+2. Optional voice: add `ELEVENLABS_API_KEY` (best character voices; pick a
+   voice and set `ELEVENLABS_VOICE_ID`) or `OPENAI_API_KEY` (cheaper, solid).
+   With neither, buyers get browser TTS speaking the Claude-written lines —
+   still a big upgrade over templates.
+3. Set `CONFIG.announcer.apiUrl` in `js/config.js` to the worker URL.
+4. For production, set `LICENSE_REQUIRED` = `"true"` on the worker. /announce
+   and /voice then demand a valid Lemon Squeezy key (the app sends the buyer's
+   activated key automatically). **This is your real anti-piracy moat**: the
+   flagship feature only works through your server, against your license list.
+
+**Model & cost:** the default model is `claude-opus-5` (best writing, and the
+current recommended default). Set the `ANNOUNCER_MODEL` secret to
+`claude-haiku-4-5` for the budget tier (roughly 1/5th the price) — for
+one-liner commentary it's still very good. Each pick is one small request
+(~500 input + ~80 output tokens); a full 180-pick draft costs on the order of
+a few cents on Haiku and tens of cents on Opus. The per-IP rate limit
+(30/min) plus license gating keeps a leaked URL from running up your bill;
+for hard global limits, move the rate bucket to Workers KV.
+
+**Local development:** the dev server proxies `/announce` — drop your key in
+`anthropic api.txt` (gitignored) in the project root for real lines, or leave
+it absent for mock mode.
+
+## 8. What's deliberately NOT here (Phase 2 remainder)
+
+- **Draft-platform sync** (Sleeper first) — picks flow onto the board
   automatically instead of manual entry.
 - **Mock draft mode** with AI opponents.
 - **Auction & keeper** formats.
-
-See the conversation notes / roadmap for the full Phase 2 plan.

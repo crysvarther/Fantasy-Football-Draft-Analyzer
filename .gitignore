@@ -19,8 +19,9 @@ tmp/
 temp/
 
 # ── Selling / deployment secrets ─────────────────────────────
-# FantasyPros API key note (keep out of the repo!)
+# API key notes (keep out of the repo!)
 fantasy pros api.txt
+anthropic api.txt
 js/config.local.js
 
 # js/config.js currently holds only PLACEHOLDERS and is committed on purpose.
