@@ -233,7 +233,7 @@ html, body {
 }
 .data-credits:hover { opacity: 1; }
 .dc-label { font-size: 10px; letter-spacing: 2px; color: var(--txt-dim); font-weight: 700; }
-.dc-logo { height: 22px; display: block; }
+.dc-logo { height: 14px; max-width: 90px; display: block; }
 .dc-sep { color: var(--txt-dim); }
 .dc-text {
   font-size: 12px; color: var(--txt-dim); text-decoration: none;
