@@ -84,23 +84,39 @@ the upstream even with many users.
 The app can also pull ~100-expert consensus rankings (ECR) from the FantasyPros
 API — better signal than raw mock-draft ADP. Note (verified): the FP API
 **rejects browser CORS preflights** (403 on OPTIONS), so the browser can never
-call it directly — every setup routes through a proxy:
+call it directly — every setup routes through a proxy.
 
-- **Your own machine:** run the local dev server (it proxies `/fp` using your
-  key file, which is gitignored) and click **FANTASYPROS ECR** in setup.
-- **For buyers:** never ship your key in client code (anyone can read it). Add
-  it to the same Cloudflare Worker instead: `wrangler secret put FP_API_KEY`
-  (or dashboard → Settings → Variables), then set
-  `CONFIG.fantasyPros.proxyUrl = "https://your-worker.workers.dev/fp"` in
-  `js/config.js`. The worker holds the key server-side and edge-caches
-  responses for an hour, so even a burst of draft-night users results in a
-  handful of upstream calls. (The worker also accepts a user-pasted key
-  forwarded as an `x-api-key` header, for a bring-your-own-key model.)
+**⚠ FP API terms (standard keys): personal, non-commercial use only.** You may
+not use your key for commercial purposes, resell the data, or distribute API
+access to third parties. Quota: 1 request/second, 500 requests/day, and they
+require you to cache. That dictates the architecture:
 
-Licensing note: using a FantasyPros key inside a product you *sell* is a
-commercial use of their data — check your API plan's terms (or ask them for a
-partner/commercial tier) before launch. Also keep `fantasy pros api.txt` (and
-any file containing a real key) out of the repo — it's already in .gitignore.
+- **Your own machine (personal use — allowed):** run the local dev server (it
+  proxies `/fp` using your key file, which is gitignored) and click
+  **FANTASYPROS ECR** in setup.
+- **For buyers — your key must NEVER serve them.** Serving customers from your
+  personal key = commercial use + distributing API access, both prohibited.
+  The compliant options:
+  1. **Bring-your-own-key:** each buyer pastes *their own* free FantasyPros
+     key into the setup screen (stored only in their browser). The worker's
+     `/fp` route forwards it as `x-api-key` without storing anything — the
+     worker is a CORS shim, not shared access. Do NOT set `FP_API_KEY` on a
+     worker that buyers use.
+  2. **CSV import:** FantasyPros lets logged-in users export their own
+     rankings/cheat sheets — buyers can import those directly, no API at all.
+  3. **A real commercial license:** if you want FP data built-in for buyers,
+     ask FantasyPros for partner/commercial API terms before launch.
+
+**Quota compliance (built-in):** the app caches each synced board in
+localStorage for 6 hours per scoring format, collapses concurrent syncs into
+one request, and falls back to the cached board when offline or rate-limited
+(a revoked/bad key still surfaces as an error — it's never masked). Worst
+case is ~a dozen requests/day against the 500/day cap, and the UI can't fire
+faster than 1 request/second. The Cloudflare Worker additionally edge-caches
+for an hour.
+
+Also keep `fantasy pros api.txt` (and any file containing a real key) out of
+the repo — it's already in .gitignore.
 
 ---
 

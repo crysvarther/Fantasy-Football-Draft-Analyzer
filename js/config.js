@@ -29,10 +29,13 @@ const CONFIG = {
   // Expert-consensus rankings (ECR) from api.fantasypros.com. The FP API
   // rejects browser CORS preflights, so all requests go through a proxy.
   // NEVER put a real key in this committed file.
-  //   1. Local dev: leave proxyUrl "" — the app falls back to same-origin
-  //      /fp (the dev server proxies it using your gitignored key file).
-  //   2. Selling: deploy the Cloudflare Worker with FP_API_KEY set as a
-  //      secret and put the worker /fp URL here — buyers never see a key.
+  // FP standard keys are PERSONAL, NON-COMMERCIAL only (1 req/s, 500/day,
+  // caching required — the app caches 6h per format automatically).
+  //   1. Local/personal use: leave proxyUrl "" — the app falls back to
+  //      same-origin /fp (dev server proxies with your gitignored key).
+  //   2. Selling: point this at the worker /fp URL, but buyers must paste
+  //      THEIR OWN keys (forwarded, never stored). Do not put your key on
+  //      a worker that serves customers — that violates FP's terms.
   fantasyPros: {
     proxyUrl: ""              // e.g. "https://gridiron-adp.YOURNAME.workers.dev/fp"
   },

@@ -35,12 +35,13 @@ export default {
 
     const url = new URL(request.url);
 
-    // ---- FantasyPros ECR proxy (keeps your FP_API_KEY server-side) ----
-    // Deploy note: set the secret with `wrangler secret put FP_API_KEY`
-    // (or Workers dashboard -> Settings -> Variables -> add FP_API_KEY).
+    // ---- FantasyPros ECR proxy ----------------------------------------
+    // FP standard keys are PERSONAL, NON-COMMERCIAL use only. This route is
+    // a CORS shim: each user's own key arrives as x-api-key and is
+    // forwarded, never stored. The FP_API_KEY env fallback is ONLY for a
+    // private personal deployment (your own devices) — do NOT set it on a
+    // worker that serves customers; that distributes your API access.
     if (url.pathname === "/fp") {
-      // a key pasted in the app is forwarded as x-api-key; else the
-      // worker's own FP_API_KEY secret is used
       const fpApiKey = request.headers.get("x-api-key") || (env && env.FP_API_KEY);
       if (!fpApiKey) {
         return json({ error: "FP_API_KEY not configured on the worker" }, 501);
