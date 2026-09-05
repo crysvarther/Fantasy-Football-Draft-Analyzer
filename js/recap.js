@@ -6,6 +6,7 @@
 const Recap = (function () {
 
   function scoreToGrade(s) { return GRADE_STEPS.find(([min]) => s >= min)[1]; }
+  function presetTag(s) { return s.preset && s.preset !== 'custom' && PRESETS[s.preset] ? ` · ${PRESETS[s.preset].label}` : ''; }
 
   function build() {
     const T = state.settings.teams;
@@ -66,7 +67,7 @@ const Recap = (function () {
     body.innerHTML = `
       <div class="rc-head">
         <div class="rc-title">DRAFT COMPLETE</div>
-        <div class="rc-sub">${s.teams}-Team · ${fmt}${s.qb === 2 ? ' · Superflex' : ''} · ${s.rounds} Rounds</div>
+        <div class="rc-sub">${s.teams}-Team · ${fmt}${s.qb === 2 ? ' · Superflex' : ''}${presetTag(s)} · ${s.rounds} Rounds</div>
       </div>
       <div class="rc-awards">
         <div class="rc-award steal">
@@ -139,7 +140,7 @@ const Recap = (function () {
 
     center(x, '🏈 GRIDIRON COMMAND', W / 2, 90, 'italic 900 46px Segoe UI, Arial', '#f5c451');
     center(x, 'DRAFT RECAP', W / 2, 140, '700 26px Segoe UI, Arial', '#e8eef6');
-    center(x, `${s.teams}-TEAM · ${fmt}${s.qb === 2 ? ' · SUPERFLEX' : ''} · ${s.rounds} ROUNDS`, W / 2, 178, '600 20px Segoe UI, Arial', '#8fa0b5');
+    center(x, `${s.teams}-TEAM · ${fmt}${s.qb === 2 ? ' · SUPERFLEX' : ''}${presetTag(s).toUpperCase()} · ${s.rounds} ROUNDS`, W / 2, 178, '600 20px Segoe UI, Arial', '#8fa0b5');
 
     // awards band
     const stealP = data.steal && data.steal.pk.delta > 2 ? PLAYERS[data.steal.pk.playerId] : null;

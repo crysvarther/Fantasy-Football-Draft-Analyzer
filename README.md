@@ -21,7 +21,13 @@ required — just double-click **index.html** and it opens in your browser.
   - roster construction (filling a hole helps; a 3rd QB hurts)
   - kickers/defenses drafted absurdly early
 - **League settings** — 8/10/12/14/16 teams, 10–16 rounds, Standard /
-  Half PPR / Full PPR scoring, 1QB or Superflex, editable team names.
+  Half PPR / Full PPR scoring, 1QB or Superflex, 1 or 2 flex spots, kicker
+  slot on/off, 4- or 6-pt passing TDs, +0.1 per completion/carry volume
+  bonus, editable team names.
+- **League presets** — one click loads a known format. Ships with the
+  Fantasy Footballers **Megalabowl** (12-team, 14 rounds, half PPR, 2 flex,
+  no kicker, 6-pt pass TD, volume bonuses); hand-editing any setting drops
+  back to Custom.
   All values (ADP + projections) re-rank automatically per format.
 - **Player data, three ways** —
   - **Built-in board** — curated 2026 rankings, works fully offline.

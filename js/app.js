@@ -6,8 +6,27 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 
 // ---------- State ----------
+const DEFAULT_SETTINGS = {
+  teams: 12, rounds: 15, ppr: 0.5, qb: 1,
+  flex: 1,          // flex starters (RB/WR/TE) — 2 widens RB/WR replacement levels
+  kicker: true,     // false = no K roster slot, kickers leave the pool
+  passTd: 4,        // 4 or 6 points per passing TD
+  volume: false,    // +0.1 per completion and per rush attempt
+  preset: 'custom',
+  announcer: true, cheer: true, names: []
+};
+
+// League presets: one click fills in every league setting for a known format.
+const PRESETS = {
+  megalabowl: {
+    label: 'Megalabowl',
+    settings: { teams: 12, rounds: 14, ppr: 0.5, qb: 1, flex: 2, kicker: false, passTd: 6, volume: true },
+    note: 'Fantasy Footballers Megalabowl loaded: 12 teams · 14 rounds · half PPR · 1QB/2RB/2WR/1TE/2FLEX/DST, no kicker · 6-pt passing TD · +0.1 per completion and per carry.'
+  }
+};
+
 const state = {
-  settings: { teams: 12, rounds: 15, ppr: 0.5, qb: 1, announcer: true, cheer: true, names: [] },
+  settings: { ...DEFAULT_SETTINGS },
   picks: [],          // [{playerId, overall, team, round, slot, grade, score, delta}]
   started: false,
   posFilter: 'ALL'
@@ -23,18 +42,37 @@ const POS_COLORS = { QB: '#e0526e', RB: '#3dd68c', WR: '#4aa8ff', TE: '#f5a83d',
 // SCORING-FORMAT VALUE MODEL
 // ============================================================
 
-// Projection adjusted for league PPR setting (data baseline is full PPR)
+// Projection adjusted for league scoring. Data baseline is full PPR with
+// 4-pt passing TDs and no volume bonuses; everything else is layered on.
 function adjProj(p) {
-  return p.proj + (state.settings.ppr - 1) * p.rec;
+  const s = state.settings;
+  let pts = p.proj + (s.ppr - 1) * p.rec;
+  if (p.pos === 'QB') {
+    // 6-pt passing TDs: a QB scores roughly one pass TD per 11 baseline
+    // points, and each one is worth +2 → about +18% of the projection.
+    if (s.passTd === 6) pts += p.proj * 0.18;
+    // +0.1 per completion (~60 + 0.85 per baseline point) plus ~50 carries
+    if (s.volume) pts += 0.1 * (60 + 0.85 * p.proj) + 5;
+  } else if (p.pos === 'RB' && s.volume) {
+    // +0.1 per carry. Carries are estimated from the non-receiving share of
+    // the projection (a catch ≈ 1.8 full-PPR pts, a carry ≈ 0.65 pts), so
+    // workhorse backs gain ~30-35 pts and pass-catching backs ~10-15.
+    const rushPts = Math.max(0, p.proj - 1.8 * p.rec);
+    pts += 0.1 * (rushPts / 0.65);
+  }
+  return pts;
 }
+
+// Positions that exist in this league's lineup (kickers can be switched off)
+function rosterable(p) { return state.settings.kicker || p.pos !== 'K'; }
 
 // Replacement-level projection per position for this league size/format
 function replacementLevels() {
   const T = state.settings.teams;
   const starters = {
     QB: Math.round(T * (state.settings.qb === 2 ? 2.2 : 1.3)),
-    RB: Math.round(T * 2.6),
-    WR: Math.round(T * 2.8),
+    RB: Math.round(T * (state.settings.flex === 2 ? 2.9 : 2.6)),
+    WR: Math.round(T * (state.settings.flex === 2 ? 3.1 : 2.8)),
     TE: Math.round(T * 1.3),
     K: T, DST: T
   };
@@ -75,7 +113,7 @@ let valueCache = null;
 function computeValueBoard() {
   computeFormatADP();
   const repl = replacementLevels();
-  const withVor = PLAYERS.map(p => ({ p, vor: adjProj(p) - repl[p.pos], adp: adjADP(p) }));
+  const withVor = PLAYERS.filter(rosterable).map(p => ({ p, vor: adjProj(p) - repl[p.pos], adp: adjADP(p) }));
   const byVor = [...withVor].sort((a, b) => b.vor - a.vor);
   byVor.forEach((e, i) => e.vorRank = i + 1);
   const byAdp = [...withVor].sort((a, b) => a.adp - b.adp);
@@ -104,7 +142,7 @@ function gradePick(p, overall, teamIdx, round) {
   const tol = 3 + overall * 0.18;
   let delta = overall - adp;                      // + = player fell to you, - = reach
   // How many clearly-better players (by board position) were passed up?
-  const passedUp = PLAYERS.filter(x => !x.drafted && x.id !== p.id && adjADP(x) < adp - tol).length;
+  const passedUp = PLAYERS.filter(x => !x.drafted && rosterable(x) && x.id !== p.id && adjADP(x) < adp - tol).length;
   if (passedUp === 0) delta = Math.max(delta, 0); // taking the top of the board is never a reach
   let score = 50;                                 // 50 = fair value
   score += Math.max(-28, Math.min(45, (delta / tol) * 18));
@@ -243,7 +281,7 @@ function renderClock() {
 }
 
 function availablePlayers() {
-  return PLAYERS.filter(p => !p.drafted);
+  return PLAYERS.filter(p => !p.drafted && rosterable(p));
 }
 
 function renderPlayerList() {
@@ -285,7 +323,20 @@ function renderBest() {
 function renderLeagueBadge() {
   const s = state.settings;
   const fmt = s.ppr === 1 ? 'FULL PPR' : s.ppr === 0.5 ? 'HALF PPR' : 'STANDARD';
-  $('#league-badge').textContent = `${s.teams} TEAM · ${fmt}${s.qb === 2 ? ' · SFLEX' : ''}`;
+  const preset = s.preset !== 'custom' && PRESETS[s.preset] ? ` · ${PRESETS[s.preset].label.toUpperCase()}` : '';
+  $('#league-badge').textContent = `${s.teams} TEAM · ${fmt}${s.qb === 2 ? ' · SFLEX' : ''}${preset}`;
+}
+
+// Plain-language league summary for the announcer's context
+function leagueDescription() {
+  const s = state.settings;
+  const bits = [`${s.teams}-team ${s.ppr === 1 ? 'PPR' : s.ppr === 0.5 ? 'half-PPR' : 'standard'}${s.qb === 2 ? ' superflex' : ''}`];
+  if (s.preset !== 'custom' && PRESETS[s.preset]) bits.push(PRESETS[s.preset].label);
+  if (s.passTd === 6) bits.push('6-pt passing TDs');
+  if (s.volume) bits.push('+0.1 per completion and carry');
+  if (s.flex === 2) bits.push('2 flex spots');
+  if (!s.kicker) bits.push('no kicker');
+  return bits.join(', ');
 }
 
 function renderAll() {
@@ -346,7 +397,7 @@ function finishDraft() {
       player: PLAYERS[data.reach.pk.playerId].name, team: teamName(data.reach.pk.team),
       pick: pickLabel(data.reach.pk.overall), reach: Math.round(data.reach.pk.delta)
     } : null,
-    league: `${state.settings.teams}-team, ${state.settings.rounds} rounds`
+    league: `${leagueDescription()}, ${state.settings.rounds} rounds`
   };
   const prefetched = Announcer.prefetch(wrapCtx);
   setTimeout(() => {
@@ -377,7 +428,7 @@ function buildAnnounceContext(p, overall, team, round, g) {
     qbCountAfterPick: g.qbCount,
     filledPositionalNeed: g.filledNeed,
     recentPicks: recent,
-    league: `${state.settings.teams}-team ${state.settings.ppr === 1 ? 'PPR' : state.settings.ppr === 0.5 ? 'half-PPR' : 'standard'}${state.settings.qb === 2 ? ' superflex' : ''}`
+    league: leagueDescription()
   };
 }
 
@@ -462,6 +513,41 @@ function wireOptionGroup(id, onPick) {
   });
 }
 
+// ---- presets ----
+function selectOption(id, val) {
+  document.querySelectorAll(`#${id} button`).forEach(b => b.classList.toggle('sel', b.dataset.val === String(val)));
+}
+function syncSetupButtons() {
+  const s = state.settings;
+  selectOption('opt-preset', s.preset);
+  selectOption('opt-teams', s.teams);
+  selectOption('opt-rounds', s.rounds);
+  selectOption('opt-scoring', s.ppr);
+  selectOption('opt-qb', s.qb);
+  selectOption('opt-flex', s.flex);
+  selectOption('opt-kicker', s.kicker ? 'on' : 'off');
+  selectOption('opt-passtd', s.passTd);
+  selectOption('opt-volume', s.volume ? 'on' : 'off');
+}
+function applyPreset(name) {
+  const note = $('#preset-note');
+  if (name === 'custom' || !PRESETS[name]) {
+    state.settings.preset = 'custom';
+    note.textContent = 'Pick any settings below, or load a preset to fill them all in.';
+    note.className = 'data-status';
+  } else {
+    Object.assign(state.settings, PRESETS[name].settings, { preset: name });
+    note.textContent = PRESETS[name].note;
+    note.className = 'data-status ok';
+    renderTeamNameInputs();
+  }
+  syncSetupButtons();
+}
+// Any hand-edited league setting turns a loaded preset back into CUSTOM
+function markCustom() {
+  if (state.settings.preset !== 'custom') applyPreset('custom');
+}
+
 function renderTeamNameInputs() {
   const wrap = $('#team-name-inputs');
   wrap.innerHTML = '';
@@ -484,6 +570,13 @@ function startDraft(fresh) {
   computeValueBoard();
   Announcer.setEnabled(state.settings.announcer);
   renderLeagueBadge();
+  // hide the K filter when the league has no kicker slot
+  const kBtn = $('#pos-filters [data-pos="K"]');
+  kBtn.classList.toggle('hidden', !state.settings.kicker);
+  if (!state.settings.kicker && state.posFilter === 'K') {
+    state.posFilter = 'ALL';
+    $$('#pos-filters button').forEach(b => b.classList.toggle('sel', b.dataset.pos === 'ALL'));
+  }
   $('#setup-screen').classList.remove('active');
   $('#draft-screen').classList.add('active');
   state.started = true;
@@ -504,7 +597,8 @@ function returnToDraftInProgress() {
 }
 
 function resumeSavedDraft(saved) {
-  state.settings = saved.settings;
+  state.settings = { ...DEFAULT_SETTINGS, ...saved.settings };   // older saves lack the newer keys
+  syncSetupButtons();
   // restore the exact pool this draft was made against (preserves ids)
   if (saved.pool && saved.pool.length) {
     PLAYERS.length = 0;
@@ -536,10 +630,17 @@ function updateResumeButton() {
 }
 
 function init() {
-  wireOptionGroup('opt-teams', v => { state.settings.teams = +v; renderTeamNameInputs(); });
-  wireOptionGroup('opt-rounds', v => state.settings.rounds = +v);
-  wireOptionGroup('opt-scoring', v => state.settings.ppr = +v);
-  wireOptionGroup('opt-qb', v => state.settings.qb = +v);
+  // league settings: editing any of them by hand drops back to the CUSTOM preset
+  const league = (id, fn) => wireOptionGroup(id, v => { fn(v); markCustom(); });
+  league('opt-teams', v => { state.settings.teams = +v; renderTeamNameInputs(); });
+  league('opt-rounds', v => state.settings.rounds = +v);
+  league('opt-scoring', v => state.settings.ppr = +v);
+  league('opt-qb', v => state.settings.qb = +v);
+  league('opt-flex', v => state.settings.flex = +v);
+  league('opt-kicker', v => state.settings.kicker = v === 'on');
+  league('opt-passtd', v => state.settings.passTd = +v);
+  league('opt-volume', v => state.settings.volume = v === 'on');
+  wireOptionGroup('opt-preset', applyPreset);
   wireOptionGroup('opt-announcer', v => state.settings.announcer = v === 'on');
   wireOptionGroup('opt-cheer', v => state.settings.cheer = v === 'on');
   renderTeamNameInputs();
