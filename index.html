@@ -38,6 +38,15 @@
     </div>
 
     <div class="setup-grid">
+      <div class="setup-card setup-card-wide">
+        <h3>⚡ LEAGUE PRESET</h3>
+        <div class="opt-row" id="opt-preset">
+          <button data-val="custom" class="sel">CUSTOM</button>
+          <button data-val="megalabowl">🏆 MEGALABOWL</button>
+        </div>
+        <div id="preset-note" class="data-status">Pick any settings below, or load a preset to fill them all in.</div>
+      </div>
+
       <div class="setup-card">
         <h3>⚙ LEAGUE SIZE</h3>
         <div class="opt-row" id="opt-teams">
@@ -51,8 +60,19 @@
         <div class="opt-row" id="opt-rounds">
           <button data-val="10">10</button>
           <button data-val="12">12</button>
+          <button data-val="14">14</button>
           <button data-val="15" class="sel">15</button>
           <button data-val="16">16</button>
+        </div>
+        <h3>FLEX SPOTS</h3>
+        <div class="opt-row" id="opt-flex">
+          <button data-val="1" class="sel">1 FLEX</button>
+          <button data-val="2">2 FLEX</button>
+        </div>
+        <h3>KICKER SLOT</h3>
+        <div class="opt-row" id="opt-kicker">
+          <button data-val="on" class="sel">YES</button>
+          <button data-val="off">NO KICKER</button>
         </div>
       </div>
 
@@ -67,6 +87,16 @@
         <div class="opt-row" id="opt-qb">
           <button data-val="1" class="sel">1 QB</button>
           <button data-val="2">SUPERFLEX</button>
+        </div>
+        <h3>PASSING TD</h3>
+        <div class="opt-row" id="opt-passtd">
+          <button data-val="4" class="sel">4 PTS</button>
+          <button data-val="6">6 PTS</button>
+        </div>
+        <h3>VOLUME BONUS</h3>
+        <div class="opt-row" id="opt-volume">
+          <button data-val="off" class="sel">OFF</button>
+          <button data-val="on">+0.1 / CMP &amp; CARRY</button>
         </div>
       </div>
 
